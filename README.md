@@ -24,7 +24,7 @@ To install the script, you can use the following commands:
 ```bash
 wget https://raw.githubusercontent.com/isg32/pixupload/refs/heads/main/pixupload
 chmod +x pixupload
-sudo cp pixupload /usr/local/bin/
+sudo cp pixupload /bin/
 ```
 
 > Note: Using /usr/local/bin/ is generally preferred over /bin/ for user-added scripts.
