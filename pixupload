@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# ==============================================================================
+# Pixeldrain Uploader Script for Linux
+# Usage: pixdupload <filename>
+#
+# This script uploads a file to Pixeldrain using the API key stored in
+# ~/.pdrainapi and then formats the output to show the filename, link,
+# size, and SHA256 hash.
+# ==============================================================================
+
+# --- Dependency Check ---
+# Ensure that curl and jq are installed.
+# These tools are essential for the script to function correctly.
+if ! command -v curl &> /dev/null; then
+    echo "Error: 'curl' is not installed."
+    echo "Please install it with: sudo apt install curl"
+    exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed."
+    echo "Please install it with: sudo apt install jq"
+    exit 1
+fi
+
+# Check if a filename was provided as an argument.
+if [ -z "$1" ]; then
+    echo "Usage: $0 <filename>"
+    exit 1
+fi
+
+FILE_NAME="$1"
+API_KEY_FILE="$HOME/.pdrainapi"
+CURL_URL="https://pixeldrain.com/api/file/"
+
+# Check if the API key file exists.
+if [ ! -f "$API_KEY_FILE" ]; then
+    echo "Error: API key file not found at $API_KEY_FILE"
+    echo "Please create this file and paste your API key inside."
+    exit 1
+fi
+
+# Read the API key from the file. We use 'tr' to remove any newlines.
+API_KEY=$(cat "$API_KEY_FILE" | tr -d '\n')
+
+# Check if the file to be uploaded exists.
+if [ ! -f "$FILE_NAME" ]; then
+    echo "Error: File '$FILE_NAME' not found."
+    exit 1
+fi
+
+echo "Uploading $FILE_NAME to Pixeldrain..."
+
+# Use curl to upload the file. We use -s for silent mode and -w to show
+# the HTTP response code (not used in this script, but good practice).
+# The -T flag is for "Transfer" or file upload.
+# The -u flag provides the username and password for authentication.
+# For Pixeldrain, the username is empty, and the password is the API key.
+# We pipe the JSON output to 'jq' for parsing.
+
+UPLOAD_RESPONSE=$(curl -s -T "$FILE_NAME" -u ":$API_KEY" "$CURL_URL")
+
+# Check if the curl command was successful.
+if [ $? -ne 0 ]; then
+    echo "Error: curl command failed."
+    echo "Response: $UPLOAD_RESPONSE"
+    exit 1
+fi
+
+# Parse the JSON response using jq and format the output.
+# The entire JSON object is assigned to a variable ($json) so we can
+# still access all the fields after processing the `thumbnail_href`.
+echo "$UPLOAD_RESPONSE" | jq -r '
+    . as $json |
+    $json.thumbnail_href |
+    # Split the thumbnail URL by `/` and take the third element (the file ID).
+    split("/")[2] as $file_id |
+    "Filename: \($json.name)
+Link: https://pixeldrain.com/u/\($file_id)
+Size: \($json.size)
+hash sha256: \($json.hash_sha256)"
+'
